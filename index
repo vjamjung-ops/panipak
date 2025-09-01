@@ -208,12 +208,12 @@
 
     <script>
         // Supabase Configuration - Replace with your actual credentials
-        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const SUPABASE_URL = 'https://qepuxbnfdjfiyvvniwgr.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlcHV4Ym5mZGpmaXl2dm5pd2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MzM5MzQsImV4cCI6MjA3MjMwOTkzNH0.eUkaQjJ8buEfG2OMZX9D24nZw1OyEvICwxQCDAK0sp8';
         
         // Initialize Supabase client (will work when credentials are added)
         let supabase;
-        if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+        if (SUPABASE_URL !== 'https://qepuxbnfdjfiyvvniwgr.supabase.co') {
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
@@ -663,7 +663,7 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('products', 'products', true);</pre>
                 </li>
                 <li>คัดลอก URL และ Anon Key จาก Settings > API</li>
-                <li>แทนที่ 'YOUR_SUPABASE_URL' และ 'YOUR_SUPABASE_ANON_KEY' ในโค้ด</li>
+                <li>แทนที่ 'YOUR_SUPABASE_URL' และ 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlcHV4Ym5mZGpmaXl2dm5pd2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MzM5MzQsImV4cCI6MjA3MjMwOTkzNH0.eUkaQjJ8buEfG2OMZX9D24nZw1OyEvICwxQCDAK0sp8' ในโค้ด</li>
             </ol>
             <p class="text-xs text-gray-600 mt-2 sm:mt-3">
                 💡 ตอนนี้ระบบใช้ Local Storage ชั่วคราว เมื่อตั้งค่า Supabase แล้วจะสามารถใช้งานจริงได้ทันที
