@@ -638,37 +638,5 @@
             }
         }
     </script>
-
-    <!-- Supabase Setup Instructions -->
-    <div class="container mx-auto px-3 sm:px-4 mt-6 sm:mt-8">
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 max-w-4xl mx-auto">
-            <h3 class="font-bold text-base sm:text-lg mb-2">📝 วิธีตั้งค่า Supabase:</h3>
-            <ol class="list-decimal list-inside space-y-1 sm:space-y-2 text-xs sm:text-sm">
-                <li>สมัครบัญชีที่ <a href="https://supabase.com" target="_blank" class="text-blue-500 underline">supabase.com</a></li>
-                <li>สร้าง Project ใหม่</li>
-                <li>สร้างตาราง 'orders' ด้วย SQL นี้:
-                    <pre class="bg-gray-100 p-2 rounded mt-1 text-xs overflow-x-auto">
-CREATE TABLE orders (
-  id SERIAL PRIMARY KEY,
-  customerAddress TEXT NOT NULL,
-  products JSONB NOT NULL,
-  productSize TEXT,
-  productColor TEXT,
-  recordDate DATE NOT NULL,
-  createdAt TIMESTAMP DEFAULT NOW()
-);
-
--- Create storage bucket for images
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('products', 'products', true);</pre>
-                </li>
-                <li>คัดลอก URL และ Anon Key จาก Settings > API</li>
-                <li>แทนที่ 'YOUR_SUPABASE_URL' และ 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlcHV4Ym5mZGpmaXl2dm5pd2dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MzM5MzQsImV4cCI6MjA3MjMwOTkzNH0.eUkaQjJ8buEfG2OMZX9D24nZw1OyEvICwxQCDAK0sp8' ในโค้ด</li>
-            </ol>
-            <p class="text-xs text-gray-600 mt-2 sm:mt-3">
-                💡 ตอนนี้ระบบใช้ Local Storage ชั่วคราว เมื่อตั้งค่า Supabase แล้วจะสามารถใช้งานจริงได้ทันที
-            </p>
-        </div>
-    </div>
 </body>
 </html>
