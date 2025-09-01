@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการข้อมูลจัดส่งสินค้า</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .product-tab { cursor: pointer; }
+        .product-tab.active { 
+            background-color: #3b82f6; 
+            color: white; 
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .copy-tooltip {
+            position: absolute;
+            background: #10b981;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+            white-space: nowrap;
+        }
+        .copy-tooltip.show {
+            opacity: 1;
+        }
+        /* Mobile optimizations */
+        @media (max-width: 640px) {
+            .table-container {
+                font-size: 12px;
+            }
+            .mobile-card {
+                display: block;
+            }
+            .desktop-table {
+                display: none;
+            }
+        }
+        @media (min-width: 641px) {
+            .mobile-card {
+                display: none;
+            }
+            .desktop-table {
+                display: table;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <div class="bg-white shadow-md p-3 sm:p-4 mb-4 sm:mb-6">
+        <div class="container mx-auto flex justify-center gap-2 sm:gap-4">
+            <button onclick="showPage('input')" class="bg-black text-white px-4 sm:px-6 py-2 rounded-full hover:bg-gray-800 transition text-sm sm:text-base">
+                บันทึกข้อมูล
+            </button>
+            <button onclick="showPage('view')" class="bg-black text-white px-4 sm:px-6 py-2 rounded-full hover:bg-gray-800 transition text-sm sm:text-base">
+                ดูข้อมูล
+            </button>
+        </div>
+    </div>
+
+    <!-- Input Page -->
+    <div id="inputPage" class="container mx-auto px-3 sm:px-4 page">
+        <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6 max-w-4xl mx-auto">
+            <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">บันทึกข้อมูลจัดส่ง</h2>
+            
+            <!-- Customer Address Section -->
+            <div class="mb-4 sm:mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    ที่อยู่จัดส่ง (ชื่อ ที่อยู่ เบอร์โทร)
+                </label>
+                <textarea id="customerAddress" rows="4" 
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                    placeholder="ชื่อ: คุณสมชาย ใจดี&#10;ที่อยู่: 123 หมู่ 4 ต.บางแสน อ.เมือง จ.ชลบุรี 20000&#10;เบอร์โทร: 081-234-5678"></textarea>
+            </div>
+
+            <!-- Product Tabs Section -->
+            <div class="mb-4 sm:mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="block text-sm font-medium text-gray-700">รายละเอียดสินค้า</label>
+                    <button onclick="addProductTab()" class="bg-green-500 text-white px-3 py-1 rounded text-xs sm:text-sm hover:bg-green-600">
+                        + เพิ่มสินค้า
+                    </button>
+                </div>
+                <div id="productTabs" class="flex gap-1 sm:gap-2 mb-3 flex-wrap">
+                    <!-- Product tabs will be added here -->
+                </div>
+                <div id="productContents" class="border border-gray-300 rounded-md p-3 sm:p-4">
+                    <!-- Product content will be shown here -->
+                </div>
+            </div>
+
+            <!-- Size and Color -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ไซส์</label>
+                    <input type="text" id="productSize" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                        placeholder="เช่น M, L, XL">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">สี</label>
+                    <input type="text" id="productColor" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                        placeholder="เช่น ดำ, ขาว, แดง">
+                </div>
+            </div>
+
+            <!-- Date -->
+            <div class="mb-4 sm:mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">วันที่บันทึก</label>
+                <input type="date" id="recordDate" 
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base">
+            </div>
+
+            <!-- Save Button -->
+            <button onclick="saveData()" 
+                class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition font-medium text-sm sm:text-base">
+                บันทึกข้อมูล
+            </button>
+        </div>
+    </div>
+
+    <!-- View Page -->
+    <div id="viewPage" class="container mx-auto px-3 sm:px-4 page" style="display: none;">
+        <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6">
+            <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">ดูข้อมูลการจัดส่ง</h2>
+            
+            <!-- Search and Filter -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <input type="text" id="searchInput" 
+                    class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                    placeholder="ค้นหา..." onkeyup="filterData()">
+                <input type="date" id="filterDate" 
+                    class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                    onchange="filterData()">
+                <button onclick="loadData()" 
+                    class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition text-sm sm:text-base">
+                    รีเฟรชข้อมูล
+                </button>
+            </div>
+
+            <!-- Desktop Table View -->
+            <div class="overflow-x-auto desktop-table">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                วันที่บันทึก
+                            </th>
+                            <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                ชื่อที่อยู่เบอร์โทรลูกค้า
+                            </th>
+                            <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                รายละเอียดสินค้า
+                            </th>
+                            <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                ไซส์/สี
+                            </th>
+                            <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                รูปสินค้า
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Data rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile Card View -->
+            <div id="mobileDataContainer" class="mobile-card space-y-4">
+                <!-- Mobile cards will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal" onclick="closeModal(event)">
+        <div class="bg-white p-4 rounded-lg max-w-2xl max-h-[90vh] overflow-auto mx-4">
+            <img id="modalImage" src="" alt="Product Image" class="w-full h-auto">
+        </div>
+    </div>
+
+    <!-- Copy Tooltip -->
+    <div id="copyTooltip" class="copy-tooltip">คัดลอกแล้ว!</div>
+
+    <script>
+        // Supabase Configuration - Replace with your actual credentials
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        
+        // Initialize Supabase client (will work when credentials are added)
+        let supabase;
+        if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        // Local storage for demo purposes
+        let localData = JSON.parse(localStorage.getItem('shippingData') || '[]');
+        let productTabs = [];
+        let currentProductTab = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set today's date
+            document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
+            
+            // Add first product tab
+            addProductTab();
+            
+            // Load data if on view page
+            if (document.getElementById('viewPage').style.display !== 'none') {
+                loadData();
+            }
+        });
+
+        // Page Navigation
+        function showPage(page) {
+            const pages = document.querySelectorAll('.page');
+            pages.forEach(p => p.style.display = 'none');
+            
+            if (page === 'input') {
+                document.getElementById('inputPage').style.display = 'block';
+            } else if (page === 'view') {
+                document.getElementById('viewPage').style.display = 'block';
+                loadData();
+            }
+        }
+
+        // Product Tab Management
+        function addProductTab() {
+            const tabId = productTabs.length;
+            productTabs.push({
+                id: tabId,
+                name: '',
+                image: null,
+                imageUrl: ''
+            });
+            
+            renderProductTabs();
+            switchProductTab(tabId);
+        }
+
+        function renderProductTabs() {
+            const tabsContainer = document.getElementById('productTabs');
+            tabsContainer.innerHTML = productTabs.map((tab, index) => `
+                <button class="product-tab px-2 sm:px-3 py-1 border border-gray-300 rounded text-xs sm:text-sm ${index === currentProductTab ? 'active' : ''}"
+                    onclick="switchProductTab(${index})">
+                    สินค้า ${index + 1}
+                </button>
+            `).join('');
+        }
+
+        function switchProductTab(index) {
+            currentProductTab = index;
+            renderProductTabs();
+            renderProductContent();
+        }
+
+        function renderProductContent() {
+            const content = document.getElementById('productContents');
+            const product = productTabs[currentProductTab];
+            
+            content.innerHTML = `
+                <div class="space-y-3 sm:space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อสินค้า</label>
+                        <input type="text" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                            placeholder="ระบุชื่อสินค้า"
+                            value="${product.name || ''}"
+                            onchange="updateProductName(this.value)">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">รูปสินค้า</label>
+                        <input type="file" accept="image/*" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm sm:text-base"
+                            onchange="handleImageUpload(event)">
+                        ${product.imageUrl ? `
+                            <img src="${product.imageUrl}" alt="Product" class="mt-2 h-24 sm:h-32 object-cover rounded">
+                        ` : ''}
+                    </div>
+                    ${productTabs.length > 1 ? `
+                        <button onclick="removeProductTab(${currentProductTab})" 
+                            class="text-red-500 text-xs sm:text-sm hover:text-red-700">
+                            ลบสินค้านี้
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function updateProductName(value) {
+            productTabs[currentProductTab].name = value;
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    productTabs[currentProductTab].imageUrl = e.target.result;
+                    productTabs[currentProductTab].image = file;
+                    renderProductContent();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeProductTab(index) {
+            if (productTabs.length > 1) {
+                productTabs.splice(index, 1);
+                currentProductTab = Math.max(0, index - 1);
+                renderProductTabs();
+                renderProductContent();
+            }
+        }
+
+        // Copy to Clipboard Function
+        function copyToClipboard(text, event) {
+            navigator.clipboard.writeText(text).then(() => {
+                const tooltip = document.getElementById('copyTooltip');
+                const button = event.currentTarget;
+                const rect = button.getBoundingClientRect();
+                
+                tooltip.style.left = rect.left + 'px';
+                tooltip.style.top = (rect.top - 30) + 'px';
+                tooltip.classList.add('show');
+                
+                setTimeout(() => {
+                    tooltip.classList.remove('show');
+                }, 2000);
+            }).catch(err => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                const tooltip = document.getElementById('copyTooltip');
+                const button = event.currentTarget;
+                const rect = button.getBoundingClientRect();
+                
+                tooltip.style.left = rect.left + 'px';
+                tooltip.style.top = (rect.top - 30) + 'px';
+                tooltip.classList.add('show');
+                
+                setTimeout(() => {
+                    tooltip.classList.remove('show');
+                }, 2000);
+            });
+        }
+
+        // Save Data
+        async function saveData() {
+            const customerAddress = document.getElementById('customerAddress').value;
+            const productSize = document.getElementById('productSize').value;
+            const productColor = document.getElementById('productColor').value;
+            const recordDate = document.getElementById('recordDate').value;
+            
+            if (!customerAddress) {
+                alert('กรุณากรอกที่อยู่จัดส่ง');
+                return;
+            }
+            
+            const productDetails = productTabs.map(p => ({
+                name: p.name || 'ไม่ระบุชื่อ',
+                imageUrl: p.imageUrl || ''
+            }));
+            
+            const data = {
+                customerAddress,
+                products: productDetails,
+                productSize,
+                productColor,
+                recordDate,
+                createdAt: new Date().toISOString()
+            };
+            
+            // If Supabase is configured, save to database
+            if (supabase) {
+                try {
+                    // Upload images to Supabase Storage
+                    for (let i = 0; i < productTabs.length; i++) {
+                        if (productTabs[i].image) {
+                            const fileName = `${Date.now()}_${i}_${productTabs[i].image.name}`;
+                            const { data: uploadData, error } = await supabase.storage
+                                .from('products')
+                                .upload(fileName, productTabs[i].image);
+                            
+                            if (!error && uploadData) {
+                                const { data: urlData } = supabase.storage
+                                    .from('products')
+                                    .getPublicUrl(fileName);
+                                data.products[i].imageUrl = urlData.publicUrl;
+                            }
+                        }
+                    }
+                    
+                    // Save to database
+                    const { error } = await supabase
+                        .from('orders')
+                        .insert([data]);
+                    
+                    if (error) throw error;
+                    
+                    alert('บันทึกข้อมูลสำเร็จ!');
+                } catch (error) {
+                    console.error('Error saving to Supabase:', error);
+                    alert('เกิดข้อผิดพลาด: ' + error.message);
+                }
+            } else {
+                // Save to local storage for demo
+                localData.push(data);
+                localStorage.setItem('shippingData', JSON.stringify(localData));
+                alert('บันทึกข้อมูลสำเร็จ! (Local Storage)');
+            }
+            
+            // Clear form
+            document.getElementById('customerAddress').value = '';
+            document.getElementById('productSize').value = '';
+            document.getElementById('productColor').value = '';
+            document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
+            productTabs = [];
+            addProductTab();
+        }
+
+        // Load Data
+        async function loadData() {
+            let data = [];
+            
+            if (supabase) {
+                try {
+                    const { data: orders, error } = await supabase
+                        .from('orders')
+                        .select('*')
+                        .order('recordDate', { ascending: false });
+                    
+                    if (error) throw error;
+                    data = orders || [];
+                } catch (error) {
+                    console.error('Error loading from Supabase:', error);
+                    data = localData;
+                }
+            } else {
+                data = localData;
+            }
+            
+            displayData(data);
+        }
+
+        // Display Data
+        function displayData(data) {
+            // Desktop Table
+            const tbody = document.getElementById('dataTableBody');
+            
+            // Mobile Cards
+            const mobileContainer = document.getElementById('mobileDataContainer');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                            ไม่พบข้อมูล
+                        </td>
+                    </tr>
+                `;
+                mobileContainer.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        ไม่พบข้อมูล
+                    </div>
+                `;
+                return;
+            }
+            
+            // Desktop Table HTML
+            tbody.innerHTML = data.map((item, index) => {
+                const productNames = item.products.map(p => p.name).join(', ');
+                const productImages = item.products.map(p => 
+                    p.imageUrl ? 
+                    `<img src="${p.imageUrl}" alt="${p.name}" 
+                        class="w-12 sm:w-16 h-12 sm:h-16 object-cover rounded cursor-pointer inline-block mr-1 sm:mr-2"
+                        onclick="showImageModal('${p.imageUrl}')">` : 
+                    '<span class="text-gray-400 text-xs">ไม่มีรูป</span>'
+                ).join('');
+                
+                return `
+                    <tr>
+                        <td class="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                            ${new Date(item.recordDate).toLocaleDateString('th-TH')}
+                        </td>
+                        <td class="px-3 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900">
+                            <div class="flex items-start gap-2">
+                                <div class="whitespace-pre-wrap flex-1">${item.customerAddress}</div>
+                                <button onclick="copyToClipboard('${item.customerAddress.replace(/'/g, "\\'")}', event)" 
+                                    class="text-blue-500 hover:text-blue-700 p-1 flex-shrink-0"
+                                    title="คัดลอก">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                                        </path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="px-3 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-900">
+                            ${productNames}
+                        </td>
+                        <td class="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                            ${item.productSize || '-'} / ${item.productColor || '-'}
+                        </td>
+                        <td class="px-3 sm:px-6 py-2 sm:py-4">
+                            ${productImages}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Mobile Cards HTML
+            mobileContainer.innerHTML = data.map((item, index) => {
+                const productNames = item.products.map(p => p.name).join(', ');
+                const productImages = item.products.map(p => 
+                    p.imageUrl ? 
+                    `<img src="${p.imageUrl}" alt="${p.name}" 
+                        class="w-16 h-16 object-cover rounded cursor-pointer inline-block mr-2"
+                        onclick="showImageModal('${p.imageUrl}')">` : 
+                    '<span class="text-gray-400 text-xs">ไม่มีรูป</span>'
+                ).join('');
+                
+                return `
+                    <div class="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm font-medium text-gray-600">วันที่:</span>
+                            <span class="text-sm text-gray-900">${new Date(item.recordDate).toLocaleDateString('th-TH')}</span>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-sm font-medium text-gray-600">ที่อยู่ลูกค้า:</span>
+                                <button onclick="copyToClipboard('${item.customerAddress.replace(/'/g, "\\'")}', event)" 
+                                    class="text-blue-500 hover:text-blue-700 p-1"
+                                    title="คัดลอก">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                                        </path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="text-sm text-gray-900 whitespace-pre-wrap bg-gray-50 p-2 rounded">
+                                ${item.customerAddress}
+                            </div>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <span class="text-sm font-medium text-gray-600">สินค้า:</span>
+                            <div class="text-sm text-gray-900 mt-1">${productNames}</div>
+                        </div>
+                        
+                        <div class="border-t pt-3 flex justify-between">
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">ไซส์/สี:</span>
+                                <div class="text-sm text-gray-900">${item.productSize || '-'} / ${item.productColor || '-'}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <span class="text-sm font-medium text-gray-600 block mb-2">รูปสินค้า:</span>
+                            <div class="flex flex-wrap gap-2">
+                                ${productImages}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Filter Data
+        function filterData() {
+            const searchValue = document.getElementById('searchInput').value.toLowerCase();
+            const filterDate = document.getElementById('filterDate').value;
+            
+            let filteredData = localData;
+            
+            if (searchValue) {
+                filteredData = filteredData.filter(item => 
+                    item.customerAddress.toLowerCase().includes(searchValue) ||
+                    item.products.some(p => p.name.toLowerCase().includes(searchValue)) ||
+                    item.productSize?.toLowerCase().includes(searchValue) ||
+                    item.productColor?.toLowerCase().includes(searchValue)
+                );
+            }
+            
+            if (filterDate) {
+                filteredData = filteredData.filter(item => 
+                    item.recordDate === filterDate
+                );
+            }
+            
+            displayData(filteredData);
+        }
+
+        // Image Modal
+        function showImageModal(imageUrl) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            modalImage.src = imageUrl;
+            modal.classList.add('active');
+        }
+
+        function closeModal(event) {
+            if (event.target.id === 'imageModal') {
+                document.getElementById('imageModal').classList.remove('active');
+            }
+        }
+    </script>
+
+    <!-- Supabase Setup Instructions -->
+    <div class="container mx-auto px-3 sm:px-4 mt-6 sm:mt-8">
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 max-w-4xl mx-auto">
+            <h3 class="font-bold text-base sm:text-lg mb-2">📝 วิธีตั้งค่า Supabase:</h3>
+            <ol class="list-decimal list-inside space-y-1 sm:space-y-2 text-xs sm:text-sm">
+                <li>สมัครบัญชีที่ <a href="https://supabase.com" target="_blank" class="text-blue-500 underline">supabase.com</a></li>
+                <li>สร้าง Project ใหม่</li>
+                <li>สร้างตาราง 'orders' ด้วย SQL นี้:
+                    <pre class="bg-gray-100 p-2 rounded mt-1 text-xs overflow-x-auto">
+CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  customerAddress TEXT NOT NULL,
+  products JSONB NOT NULL,
+  productSize TEXT,
+  productColor TEXT,
+  recordDate DATE NOT NULL,
+  createdAt TIMESTAMP DEFAULT NOW()
+);
+
+-- Create storage bucket for images
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('products', 'products', true);</pre>
+                </li>
+                <li>คัดลอก URL และ Anon Key จาก Settings > API</li>
+                <li>แทนที่ 'YOUR_SUPABASE_URL' และ 'YOUR_SUPABASE_ANON_KEY' ในโค้ด</li>
+            </ol>
+            <p class="text-xs text-gray-600 mt-2 sm:mt-3">
+                💡 ตอนนี้ระบบใช้ Local Storage ชั่วคราว เมื่อตั้งค่า Supabase แล้วจะสามารถใช้งานจริงได้ทันที
+            </p>
+        </div>
+    </div>
+</body>
+</html>
