@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการข้อมูลจัดส่งสินค้า</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Prompt', sans-serif;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .product-card {
+            transition: all 0.3s ease;
+        }
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .product-selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .copy-tooltip {
+            position: absolute;
+            background: #10b981;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+            white-space: nowrap;
+        }
+        .copy-tooltip.show {
+            opacity: 1;
+        }
+        .loader {
+            border-top-color: #667eea;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @-webkit-keyframes spinner {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @media (max-width: 640px) {
+            .mobile-card {
+                display: block;
+            }
+            .desktop-table {
+                display: none;
+            }
+        }
+        @media (min-width: 641px) {
+            .mobile-card {
+                display: none;
+            }
+            .desktop-table {
+                display: table;
+            }
+        }
+        .cod-badge {
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 to-indigo-100 min-h-screen">
+    <!-- Header -->
+    <div class="gradient-bg shadow-lg p-4 sm:p-6 mb-6">
+        <div class="container mx-auto">
+            <h1 class="text-white text-center text-2xl sm:text-3xl font-bold mb-4">📦 ระบบจัดการข้อมูลจัดส่งสินค้า</h1>
+            <div class="flex justify-center gap-3 sm:gap-4">
+                <button onclick="showPage('input')" class="bg-white text-purple-600 px-6 sm:px-8 py-2 sm:py-3 rounded-full hover:shadow-lg transition-all font-medium text-sm sm:text-base">
+                    ➕ บันทึกข้อมูล
+                </button>
+                <button onclick="showPage('view')" class="bg-white text-purple-600 px-6 sm:px-8 py-2 sm:py-3 rounded-full hover:shadow-lg transition-all font-medium text-sm sm:text-base">
+                    📋 ดูข้อมูล
+                </button>
+                <button onclick="showPage('products')" class="bg-white text-purple-600 px-6 sm:px-8 py-2 sm:py-3 rounded-full hover:shadow-lg transition-all font-medium text-sm sm:text-base">
+                    🛍️ จัดการสินค้า
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-16 w-16"></div>
+    </div>
+
+    <!-- Input Page -->
+    <div id="inputPage" class="container mx-auto px-3 sm:px-4 page">
+        <div class="bg-white rounded-2xl shadow-xl p-6 sm:p-8 max-w-4xl mx-auto">
+            <h2 class="text-2xl sm:text-3xl font-bold mb-6 text-gray-800 flex items-center">
+                <span class="text-3xl mr-3">📝</span>
+                บันทึกข้อมูลจัดส่ง
+            </h2>
+            
+            <!-- Customer Address Section -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    ที่อยู่จัดส่ง (ชื่อ ที่อยู่ เบอร์โทร)
+                </label>
+                <textarea id="customerAddress" rows="4" 
+                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base transition-all"
+                    placeholder="ชื่อ: คุณสมชาย ใจดี&#10;ที่อยู่: 123 หมู่ 4 ต.บางแสน อ.เมือง จ.ชลบุรี 20000&#10;เบอร์โทร: 081-234-5678"></textarea>
+            </div>
+
+            <!-- Product Selection Section -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                    เลือกสินค้า
+                </label>
+                
+                <!-- Product Search/Select -->
+                <div class="mb-4">
+                    <select id="productSelect" onchange="addSelectedProduct()" 
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="">-- เลือกสินค้า หรือเพิ่มสินค้าใหม่ --</option>
+                    </select>
+                </div>
+
+                <!-- Selected Products -->
+                <div id="selectedProductsList" class="space-y-2 mb-4">
+                    <!-- Selected products will appear here -->
+                </div>
+
+                <!-- Add New Product Button -->
+                <button onclick="showAddProductModal()" 
+                    class="bg-gradient-to-r from-green-400 to-green-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all text-sm">
+                    ➕ เพิ่มสินค้าใหม่
+                </button>
+            </div>
+
+            <!-- Size and Color -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ไซส์</label>
+                    <input type="text" id="productSize" 
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base transition-all"
+                        placeholder="เช่น M, L, XL">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">สี</label>
+                    <input type="text" id="productColor" 
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base transition-all"
+                        placeholder="เช่น ดำ, ขาว, แดง">
+                </div>
+            </div>
+
+            <!-- COD Section -->
+            <div class="mb-6 bg-gradient-to-r from-orange-50 to-red-50 p-4 rounded-xl border-2 border-orange-200">
+                <div class="flex items-center mb-3">
+                    <input type="checkbox" id="isCod" onchange="toggleCodAmount()" 
+                        class="w-5 h-5 text-orange-600 rounded focus:ring-orange-500 mr-3">
+                    <label for="isCod" class="text-sm font-medium text-gray-700 flex items-center">
+                        💵 เก็บเงินปลายทาง (COD)
+                    </label>
+                </div>
+                <div id="codAmountDiv" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">จำนวนเงินที่ต้องเก็บ</label>
+                    <input type="number" id="codAmount" 
+                        class="w-full px-4 py-3 border-2 border-orange-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base transition-all"
+                        placeholder="0.00" step="0.01" min="0">
+                </div>
+            </div>
+
+            <!-- Date -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">วันที่บันทึก</label>
+                <input type="date" id="recordDate" 
+                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm sm:text-base transition-all">
+            </div>
+
+            <!-- Save Button -->
+            <button onclick="saveOrder()" 
+                class="w-full gradient-bg text-white py-3 px-6 rounded-xl hover:shadow-lg transition-all font-medium text-base sm:text-lg">
+                💾 บันทึกข้อมูล
+            </button>
+        </div>
+    </div>
+
+    <!-- View Page -->
+    <div id="viewPage" class="container mx-auto px-3 sm:px-4 page" style="display: none;">
+        <div class="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+            <h2 class="text-2xl sm:text-3xl font-bold mb-6 text-gray-800 flex items-center">
+                <span class="text-3xl mr-3">📋</span>
+                ดูข้อมูลการจัดส่ง
+            </h2>
+            
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gradient-to-r from-blue-100 to-blue-200 p-4 rounded-xl">
+                    <div class="text-sm text-blue-700 font-medium">จำนวนออเดอร์ทั้งหมด</div>
+                    <div id="totalOrders" class="text-2xl font-bold text-blue-900">0</div>
+                </div>
+                <div class="bg-gradient-to-r from-orange-100 to-red-100 p-4 rounded-xl">
+                    <div class="text-sm text-orange-700 font-medium">ยอด COD ทั้งหมด</div>
+                    <div id="totalCod" class="text-2xl font-bold text-orange-900">฿0.00</div>
+                </div>
+                <div class="bg-gradient-to-r from-green-100 to-green-200 p-4 rounded-xl">
+                    <div class="text-sm text-green-700 font-medium">จำนวน COD</div>
+                    <div id="codCount" class="text-2xl font-bold text-green-900">0</div>
+                </div>
+            </div>
+            
+            <!-- Search and Filter -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <input type="text" id="searchInput" 
+                    class="px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="🔍 ค้นหา..." onkeyup="filterData()">
+                <input type="date" id="filterDate" 
+                    class="px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    onchange="filterData()">
+                <button onclick="loadOrders()" 
+                    class="bg-gradient-to-r from-gray-400 to-gray-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all">
+                    🔄 รีเฟรชข้อมูล
+                </button>
+            </div>
+
+            <!-- Desktop Table View -->
+            <div class="overflow-x-auto desktop-table">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gradient-to-r from-purple-100 to-indigo-100">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                วันที่บันทึก
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                ชื่อที่อยู่เบอร์โทรลูกค้า
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                รายละเอียดสินค้า
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                ไซส์/สี
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                COD
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                                รูปสินค้า
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Data rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile Card View -->
+            <div id="mobileDataContainer" class="mobile-card space-y-4">
+                <!-- Mobile cards will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Management Page -->
+    <div id="productsPage" class="container mx-auto px-3 sm:px-4 page" style="display: none;">
+        <div class="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+            <h2 class="text-2xl sm:text-3xl font-bold mb-6 text-gray-800 flex items-center">
+                <span class="text-3xl mr-3">🛍️</span>
+                จัดการสินค้า
+            </h2>
+            
+            <button onclick="showAddProductModal()" 
+                class="mb-6 bg-gradient-to-r from-green-400 to-green-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all">
+                ➕ เพิ่มสินค้าใหม่
+            </button>
+
+            <div id="productsList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Products will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Product Modal -->
+    <div id="addProductModal" class="modal">
+        <div class="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold mb-4">เพิ่มสินค้าใหม่</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ชื่อสินค้า</label>
+                    <input type="text" id="newProductName" 
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">รูปสินค้า</label>
+                    <input type="file" id="newProductImage" accept="image/*" 
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl">
+                    <div id="imagePreview" class="mt-2"></div>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="saveNewProduct()" 
+                        class="flex-1 bg-gradient-to-r from-green-400 to-green-600 text-white py-2 rounded-lg hover:shadow-lg transition-all">
+                        บันทึก
+                    </button>
+                    <button onclick="closeAddProductModal()" 
+                        class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition-all">
+                        ยกเลิก
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal" onclick="closeModal(event)">
+        <div class="bg-white p-4 rounded-2xl max-w-2xl max-h-[90vh] overflow-auto mx-4">
+            <img id="modalImage" src="" alt="Product Image" class="w-full h-auto rounded-lg">
+        </div>
+    </div>
+
+    <!-- Copy Tooltip -->
+    <div id="copyTooltip" class="copy-tooltip">คัดลอกแล้ว!</div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://qepuxbnfdjfiyvvniwgr.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlcHV4Ym5mZGpmaXl2dm5pd2dyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjczMzkzNCwiZXhwIjoyMDcyMzA5OTM0fQ.6zigPrXq6O5WyWGYh_8hkxGPrBcnlIry28W6y2kFGHA';
+        
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Global variables
+        let allProducts = [];
+        let selectedProducts = [];
+        let allOrders = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Set today's date
+            document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
+            
+            // Initialize Supabase tables if needed
+            await initializeTables();
+            
+            // Load products
+            await loadProducts();
+            
+            // Load orders if on view page
+            if (document.getElementById('viewPage').style.display !== 'none') {
+                await loadOrders();
+            }
+        });
+
+        // Initialize Supabase tables
+        async function initializeTables() {
+            // This function would normally create tables, but they should be created via Supabase dashboard
+            console.log('Supabase initialized');
+        }
+
+        // Toggle COD Amount field
+        function toggleCodAmount() {
+            const checkbox = document.getElementById('isCod');
+            const amountDiv = document.getElementById('codAmountDiv');
+            const amountInput = document.getElementById('codAmount');
+            
+            if (checkbox.checked) {
+                amountDiv.style.display = 'block';
+                amountInput.required = true;
+            } else {
+                amountDiv.style.display = 'none';
+                amountInput.required = false;
+                amountInput.value = '';
+            }
+        }
+
+        // Show loading spinner
+        function showLoading() {
+            document.getElementById('loadingSpinner').classList.remove('hidden');
+        }
+
+        // Hide loading spinner
+        function hideLoading() {
+            document.getElementById('loadingSpinner').classList.add('hidden');
+        }
+
+        // Page Navigation
+        function showPage(page) {
+            const pages = document.querySelectorAll('.page');
+            pages.forEach(p => p.style.display = 'none');
+            
+            if (page === 'input') {
+                document.getElementById('inputPage').style.display = 'block';
+                loadProducts();
+            } else if (page === 'view') {
+                document.getElementById('viewPage').style.display = 'block';
+                loadOrders();
+            } else if (page === 'products') {
+                document.getElementById('productsPage').style.display = 'block';
+                loadProducts();
+                displayProductsManagement();
+            }
+        }
+
+        // Load Products from Supabase
+        async function loadProducts() {
+            showLoading();
+            try {
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('*')
+                    .order('name');
+                
+                if (error) throw error;
+                
+                allProducts = data || [];
+                updateProductSelect();
+            } catch (error) {
+                console.error('Error loading products:', error);
+                // Use demo products if error
+                allProducts = [
+                    { id: 1, name: 'เสื้อยืด', image_url: '' },
+                    { id: 2, name: 'กางเกงยีนส์', image_url: '' }
+                ];
+                updateProductSelect();
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Update Product Select Dropdown
+        function updateProductSelect() {
+            const select = document.getElementById('productSelect');
+            select.innerHTML = '<option value="">-- เลือกสินค้า หรือเพิ่มสินค้าใหม่ --</option>';
+            
+            allProducts.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = product.name;
+                select.appendChild(option);
+            });
+        }
+
+        // Add Selected Product
+        function addSelectedProduct() {
+            const select = document.getElementById('productSelect');
+            const productId = select.value;
+            
+            if (!productId) return;
+            
+            const product = allProducts.find(p => p.id == productId);
+            if (!product) return;
+            
+            // Check if already selected
+            if (selectedProducts.find(p => p.id == productId)) {
+                alert('สินค้านี้ถูกเลือกแล้ว');
+                select.value = '';
+                return;
+            }
+            
+            selectedProducts.push(product);
+            displaySelectedProducts();
+            select.value = '';
+        }
+
+        // Display Selected Products
+        function displaySelectedProducts() {
+            const container = document.getElementById('selectedProductsList');
+            
+            if (selectedProducts.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">ยังไม่ได้เลือกสินค้า</p>';
+                return;
+            }
+            
+            container.innerHTML = selectedProducts.map((product, index) => `
+                <div class="flex items-center justify-between bg-purple-50 p-3 rounded-lg">
+                    <div class="flex items-center gap-3">
+                        ${product.image_url ? 
+                            `<img src="${product.image_url}" class="w-12 h-12 object-cover rounded">` :
+                            `<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                                <span class="text-gray-400">📦</span>
+                            </div>`
+                        }
+                        <span class="font-medium">${product.name}</span>
+                    </div>
+                    <button onclick="removeSelectedProduct(${index})" 
+                        class="text-red-500 hover:text-red-700">
+                        ❌
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Remove Selected Product
+        function removeSelectedProduct(index) {
+            selectedProducts.splice(index, 1);
+            displaySelectedProducts();
+        }
+
+        // Show Add Product Modal
+        function showAddProductModal() {
+            document.getElementById('addProductModal').classList.add('active');
+        }
+
+        // Close Add Product Modal
+        function closeAddProductModal() {
+            document.getElementById('addProductModal').classList.remove('active');
+            document.getElementById('newProductName').value = '';
+            document.getElementById('newProductImage').value = '';
+            document.getElementById('imagePreview').innerHTML = '';
+        }
+
+        // Handle image preview
+        document.getElementById('newProductImage').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('imagePreview').innerHTML = 
+                        `<img src="${e.target.result}" class="w-full h-32 object-cover rounded-lg mt-2">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Save New Product
+        async function saveNewProduct() {
+            const name = document.getElementById('newProductName').value.trim();
+            const imageFile = document.getElementById('newProductImage').files[0];
+            
+            if (!name) {
+                alert('กรุณาใส่ชื่อสินค้า');
+                return;
+            }
+            
+            showLoading();
+            try {
+                let imageUrl = '';
+                
+                // Upload image if provided
+                if (imageFile) {
+                    const fileName = `${Date.now()}_${imageFile.name}`;
+                    const { data: uploadData, error: uploadError } = await supabase.storage
+                        .from('products')
+                        .upload(fileName, imageFile);
+                    
+                    if (uploadError) throw uploadError;
+                    
+                    const { data: urlData } = supabase.storage
+                        .from('products')
+                        .getPublicUrl(fileName);
+                    
+                    imageUrl = urlData.publicUrl;
+                }
+                
+                // Save product to database
+                const { data, error } = await supabase
+                    .from('products')
+                    .insert([{ name, image_url: imageUrl }])
+                    .select();
+                
+                if (error) throw error;
+                
+                alert('เพิ่มสินค้าสำเร็จ!');
+                closeAddProductModal();
+                await loadProducts();
+                
+                if (document.getElementById('productsPage').style.display !== 'none') {
+                    displayProductsManagement();
+                }
+            } catch (error) {
+                console.error('Error saving product:', error);
+                alert('เกิดข้อผิดพลาด: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Display Products Management
+        function displayProductsManagement() {
+            const container = document.getElementById('productsList');
+            
+            if (allProducts.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center col-span-full">ยังไม่มีสินค้า</p>';
+                return;
+            }
+            
+            container.innerHTML = allProducts.map(product => `
+                <div class="product-card bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-purple-400">
+                    ${product.image_url ? 
+                        `<img src="${product.image_url}" class="w-full h-40 object-cover rounded-lg mb-3">` :
+                        `<div class="w-full h-40 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                            <span class="text-6xl">📦</span>
+                        </div>`
+                    }
+                    <h3 class="font-semibold text-lg">${product.name}</h3>
+                    <button onclick="deleteProduct(${product.id})" 
+                        class="mt-3 w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-all text-sm">
+                        ลบสินค้า
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Delete Product
+        async function deleteProduct(productId) {
+            if (!confirm('ต้องการลบสินค้านี้หรือไม่?')) return;
+            
+            showLoading();
+            try {
+                const { error } = await supabase
+                    .from('products')
+                    .delete()
+                    .eq('id', productId);
+                
+                if (error) throw error;
+                
+                alert('ลบสินค้าสำเร็จ!');
+                await loadProducts();
+                displayProductsManagement();
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                alert('เกิดข้อผิดพลาด: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Save Order
+        async function saveOrder() {
+            const customerAddress = document.getElementById('customerAddress').value.trim();
+            const productSize = document.getElementById('productSize').value.trim();
+            const productColor = document.getElementById('productColor').value.trim();
+            const recordDate = document.getElementById('recordDate').value;
+            const isCod = document.getElementById('isCod').checked;
+            const codAmount = isCod ? parseFloat(document.getElementById('codAmount').value) || 0 : 0;
+            
+            if (!customerAddress) {
+                alert('กรุณากรอกที่อยู่จัดส่ง');
+                return;
+            }
+            
+            if (selectedProducts.length === 0) {
+                alert('กรุณาเลือกสินค้าอย่างน้อย 1 รายการ');
+                return;
+            }
+            
+            if (isCod && (!codAmount || codAmount <= 0)) {
+                alert('กรุณาระบุจำนวนเงินที่ต้องเก็บ');
+                return;
+            }
+            
+            showLoading();
+            try {
+                const orderData = {
+                    customer_address: customerAddress,
+                    products: selectedProducts.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        image_url: p.image_url
+                    })),
+                    product_size: productSize,
+                    product_color: productColor,
+                    record_date: recordDate,
+                    is_cod: isCod,
+                    cod_amount: codAmount,
+                    created_at: new Date().toISOString()
+                };
+                
+                const { error } = await supabase
+                    .from('orders')
+                    .insert([orderData]);
+                
+                if (error) throw error;
+                
+                alert('บันทึกข้อมูลสำเร็จ!');
+                
+                // Clear form
+                document.getElementById('customerAddress').value = '';
+                document.getElementById('productSize').value = '';
+                document.getElementById('productColor').value = '';
+                document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
+                document.getElementById('isCod').checked = false;
+                document.getElementById('codAmount').value = '';
+                document.getElementById('codAmountDiv').style.display = 'none';
+                selectedProducts = [];
+                displaySelectedProducts();
+            } catch (error) {
+                console.error('Error saving order:', error);
+                alert('เกิดข้อผิดพลาด: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Load Orders
+        async function loadOrders() {
+            showLoading();
+            try {
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .order('record_date', { ascending: false });
+                
+                if (error) throw error;
+                
+                allOrders = data || [];
+                displayOrders(allOrders);
+                updateSummaryStats(allOrders);
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                allOrders = [];
+                displayOrders([]);
+                updateSummaryStats([]);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Update Summary Statistics
+        function updateSummaryStats(orders) {
+            const totalOrders = orders.length;
+            const codOrders = orders.filter(o => o.is_cod);
+            const codCount = codOrders.length;
+            const totalCod = codOrders.reduce((sum, o) => sum + (o.cod_amount || 0), 0);
+            
+            document.getElementById('totalOrders').textContent = totalOrders;
+            document.getElementById('codCount').textContent = codCount;
+            document.getElementById('totalCod').textContent = `฿${totalCod.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+        }
+
+        // Display Orders
+        function displayOrders(orders) {
+            const tbody = document.getElementById('dataTableBody');
+            const mobileContainer = document.getElementById('mobileDataContainer');
+            
+            if (orders.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            ไม่พบข้อมูล
+                        </td>
+                    </tr>
+                `;
+                mobileContainer.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        ไม่พบข้อมูล
+                    </div>
+                `;
+                return;
+            }
+            
+            // Desktop Table
+            tbody.innerHTML = orders.map(order => {
+                const productNames = order.products.map(p => p.name).join(', ');
+                const productImages = order.products.map(p => 
+                    p.image_url ? 
+                    `<img src="${p.image_url}" alt="${p.name}" 
+                        class="w-16 h-16 object-cover rounded-lg cursor-pointer inline-block mr-2"
+                        onclick="showImageModal('${p.image_url}')">` : 
+                    '<span class="inline-block w-16 h-16 bg-gray-100 rounded-lg mr-2 text-center leading-[4rem]">📦</span>'
+                ).join('');
+                
+                const codDisplay = order.is_cod ? 
+                    `<span class="cod-badge">฿${(order.cod_amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</span>` : 
+                    '<span class="text-gray-400">-</span>';
+                
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${new Date(order.record_date).toLocaleDateString('th-TH')}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">
+                            <div class="flex items-start gap-2">
+                                <div class="whitespace-pre-wrap flex-1">${order.customer_address}</div>
+                                <button onclick="copyToClipboard('${order.customer_address.replace(/'/g, "\\'")}', event)" 
+                                    class="text-purple-500 hover:text-purple-700 p-1 flex-shrink-0"
+                                    title="คัดลอก">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                                        </path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">
+                            ${productNames}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${order.product_size || '-'} / ${order.product_color || '-'}
+                        </td>
+                        <td class="px-6 py-4">
+                            ${codDisplay}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-2">
+                                ${productImages}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Mobile Cards
+            mobileContainer.innerHTML = orders.map(order => {
+                const productNames = order.products.map(p => p.name).join(', ');
+                const productImages = order.products.map(p => 
+                    p.image_url ? 
+                    `<img src="${p.image_url}" alt="${p.name}" 
+                        class="w-16 h-16 object-cover rounded-lg cursor-pointer inline-block"
+                        onclick="showImageModal('${p.image_url}')">` : 
+                    '<span class="inline-block w-16 h-16 bg-gray-100 rounded-lg text-center leading-[4rem]">📦</span>'
+                ).join('');
+                
+                return `
+                    <div class="bg-white border-2 border-gray-200 rounded-xl p-5 space-y-4">
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm font-medium text-gray-600">วันที่:</span>
+                            <span class="text-sm text-gray-900 font-medium">${new Date(order.record_date).toLocaleDateString('th-TH')}</span>
+                        </div>
+                        
+                        ${order.is_cod ? `
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-600">COD:</span>
+                            <span class="cod-badge">฿${(order.cod_amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</span>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="border-t pt-3">
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-sm font-medium text-gray-600">ที่อยู่ลูกค้า:</span>
+                                <button onclick="copyToClipboard('${order.customer_address.replace(/'/g, "\\'")}', event)" 
+                                    class="text-purple-500 hover:text-purple-700 p-1"
+                                    title="คัดลอก">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3">
+                                        </path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="text-sm text-gray-900 whitespace-pre-wrap bg-purple-50 p-3 rounded-lg">
+                                ${order.customer_address}
+                            </div>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <span class="text-sm font-medium text-gray-600">สินค้า:</span>
+                            <div class="text-sm text-gray-900 mt-1 font-medium">${productNames}</div>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <span class="text-sm font-medium text-gray-600">ไซส์/สี:</span>
+                            <div class="text-sm text-gray-900">${order.product_size || '-'} / ${order.product_color || '-'}</div>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <span class="text-sm font-medium text-gray-600 block mb-2">รูปสินค้า:</span>
+                            <div class="flex flex-wrap gap-2">
+                                ${productImages}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Filter Data
+        function filterData() {
+            const searchValue = document.getElementById('searchInput').value.toLowerCase();
+            const filterDate = document.getElementById('filterDate').value;
+            
+            let filteredData = allOrders;
+            
+            if (searchValue) {
+                filteredData = filteredData.filter(order => 
+                    order.customer_address.toLowerCase().includes(searchValue) ||
+                    order.products.some(p => p.name.toLowerCase().includes(searchValue)) ||
+                    order.product_size?.toLowerCase().includes(searchValue) ||
+                    order.product_color?.toLowerCase().includes(searchValue)
+                );
+            }
+            
+            if (filterDate) {
+                filteredData = filteredData.filter(order => 
+                    order.record_date === filterDate
+                );
+            }
+            
+            displayOrders(filteredData);
+            updateSummaryStats(filteredData);
+        }
+
+        // Copy to Clipboard
+        function copyToClipboard(text, event) {
+            navigator.clipboard.writeText(text).then(() => {
+                const tooltip = document.getElementById('copyTooltip');
+                const button = event.currentTarget;
+                const rect = button.getBoundingClientRect();
+                
+                tooltip.style.left = rect.left + 'px';
+                tooltip.style.top = (rect.top - 30) + 'px';
+                tooltip.classList.add('show');
+                
+                setTimeout(() => {
+                    tooltip.classList.remove('show');
+                }, 2000);
+            }).catch(err => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                const tooltip = document.getElementById('copyTooltip');
+                const button = event.currentTarget;
+                const rect = button.getBoundingClientRect();
+                
+                tooltip.style.left = rect.left + 'px';
+                tooltip.style.top = (rect.top - 30) + 'px';
+                tooltip.classList.add('show');
+                
+                setTimeout(() => {
+                    tooltip.classList.remove('show');
+                }, 2000);
+            });
+        }
+
+        // Image Modal
+        function showImageModal(imageUrl) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            modalImage.src = imageUrl;
+            modal.classList.add('active');
+        }
+
+        function closeModal(event) {
+            if (event.target.id === 'imageModal') {
+                document.getElementById('imageModal').classList.remove('active');
+            }
+        }
+    </script>
+
+    <!-- Supabase Setup Note -->
+    <div class="container mx-auto px-4 mt-8 mb-4">
+        <div class="bg-gradient-to-r from-purple-100 to-indigo-100 border border-purple-300 rounded-2xl p-6 max-w-4xl mx-auto">
+            <h3 class="font-bold text-lg mb-3 text-purple-800">⚙️ การตั้งค่า Supabase:</h3>
+            <p class="text-sm text-purple-700 mb-3">
+                ⚡ ระบบพร้อมใช้งานแล้ว! เพียงสร้างตารางใน Supabase ด้วย SQL นี้:
+            </p>
+            <pre class="bg-white p-3 rounded-lg text-xs overflow-x-auto border border-purple-200">
+-- Create products table
+CREATE TABLE products (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  image_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create orders table (with COD fields)
+CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  customer_address TEXT NOT NULL,
+  products JSONB NOT NULL,
+  product_size TEXT,
+  product_color TEXT,
+  record_date DATE NOT NULL,
+  is_cod BOOLEAN DEFAULT FALSE,
+  cod_amount DECIMAL(10,2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Disable RLS for testing (or configure policies)
+ALTER TABLE products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
+
+-- Create storage bucket
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('products', 'products', true)
+ON CONFLICT (id) DO NOTHING;</pre>
+        </div>
+    </div>
+</body>
+</html>
